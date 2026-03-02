@@ -8,6 +8,8 @@ A text analysis tool that detects AI-generated content and distinguishes persuas
 
 Uses a lattice-based approach to measure structural coherence across 8 levels of abstraction — from individual letters up through words, sentences, paragraphs, sections, chapters, formal structure, and author identity. The compounding of small errors across these layers exposes patterns that generative models cannot conceal.
 
+**[Grant proposal and full technical rationale](docs/manifund-proposal.md)**
+
 ## Tools
 
 ### recognise
