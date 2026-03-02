@@ -1,0 +1,15 @@
+_output/
+*.ppm
+*.jpg
+*.png
+!docs/icon/the-walker-phage.png
+*.wasm
+.claude/
+
+# Binary artifacts
+dendrite
+dendrite.gen0
+bethe-brute
+shadow-cli
+files.zip
+wuxing-dist.tar.gz
