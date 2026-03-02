@@ -10,6 +10,16 @@ Uses a lattice-based approach to measure structural coherence across 8 levels of
 
 **[Grant proposal and full technical rationale](docs/manifund-proposal.md)**
 
+## Quick Start
+
+Requires Go 1.24+ and curl. Downloads pre-trained lattices and test corpus automatically:
+
+```
+scripts/run-benchmark.sh
+```
+
+This runs the full 3-phase benchmark (human text, Claude samples, RAID multi-model corpus) and prints a markdown summary. Takes a few minutes on a modern machine.
+
 ## Tools
 
 ### recognise
