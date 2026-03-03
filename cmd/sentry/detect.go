@@ -8,5 +8,5 @@ import (
 // This thin wrapper preserves the existing sentry API surface.
 type Detector = detect.Detector
 
-// NewDetector creates a detector from trained mindsicles.
+// NewDetector creates a detector from a trained Cayley tree snapshot.
 var NewDetector = detect.NewDetector

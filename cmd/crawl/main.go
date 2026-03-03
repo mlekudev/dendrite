@@ -35,10 +35,8 @@ import (
 func main() {
 	var (
 		relayURL    = flag.String("relay", "wss://relay.orly.dev", "relay to crawl")
-		memoryDir   = flag.String("memory", ".recognise_db", "badger DB with trained mindsicles")
-		trollMemory = flag.String("troll-memory", "", "badger DB with manipulation-trained mindsicles")
-		trollPasses = flag.Int("troll-passes", 8, "number of troll detection passes")
-		passes      = flag.Int("passes", 8, "number of detection passes")
+		memoryDir   = flag.String("memory", ".recognise_db", "badger DB with trained snapshot")
+		trollMemory = flag.String("troll-memory", "", "badger DB with manipulation-trained snapshot")
 		window      = flag.Int("window", 500, "max tokens per sample")
 		since       = flag.Int64("since", 0, "start timestamp (unix seconds, 0 = relay's earliest)")
 		until       = flag.Int64("until", 0, "end timestamp (0 = now)")
@@ -54,15 +52,15 @@ func main() {
 	defer cancel()
 
 	// Load detector.
-	log.Printf("loading %d-pass lattice chain from %s", *passes, *memoryDir)
-	detector, err := detect.NewDetector(*memoryDir, *passes, *window)
+	log.Printf("loading Cayley tree detector from %s", *memoryDir)
+	detector, err := detect.NewDetector(*memoryDir, *window)
 	if err != nil {
 		log.Fatalf("init detector: %v", err)
 	}
 
 	if *trollMemory != "" {
-		log.Printf("loading %d-pass troll lattice chain from %s", *trollPasses, *trollMemory)
-		if err := detector.LoadTrollLattices(*trollMemory, *trollPasses); err != nil {
+		log.Printf("loading troll Cayley tree from %s", *trollMemory)
+		if err := detector.LoadTrollTree(*trollMemory); err != nil {
 			log.Fatalf("init troll detector: %v", err)
 		}
 	}

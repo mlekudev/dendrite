@@ -221,6 +221,15 @@ func IsRef(e axiom.Element) bool {
 	return ok
 }
 
+// OriginElement creates an element tagged as "origin" carrying author
+// identity information. This is the 8th token type in the z=8 Cayley
+// tree, representing provenance/fingerprint signal. Origin elements
+// are injected during training when author identity is known — they
+// are not produced by the text scanner.
+func OriginElement(authorID string) axiom.Element {
+	return newHexElement("origin", authorID)
+}
+
 // Lines is an enzyme that emits each line as a single element.
 type Lines struct {
 	Tag string // type tag for emitted elements; defaults to "line"

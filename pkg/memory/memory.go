@@ -6,10 +6,21 @@ import (
 	"time"
 
 	"github.com/mlekudev/dendrite/pkg/ratio"
-	"github.com/mlekudev/dendrite/pkg/spore"
 	"github.com/dgraph-io/badger/v4"
 	"github.com/dgraph-io/badger/v4/options"
 )
+
+// TagCount pairs a tag name with a count.
+type TagCount struct {
+	Tag   string `json:"tag"`
+	Count int    `json:"count"`
+}
+
+// TagRatio pairs a tag name with a rational value.
+type TagRatio struct {
+	Tag   string      `json:"tag"`
+	Value ratio.Ratio `json:"value"`
+}
 
 // DB is the persistent cross-generation memory store.
 type DB struct {
@@ -92,7 +103,7 @@ func (d *DB) RecordBonds(gen uint32, bonds []BondRecord) error {
 }
 
 // RecordMissing writes missing site records (negative space) for a generation.
-func (d *DB) RecordMissing(gen uint32, missing []spore.TagCount) error {
+func (d *DB) RecordMissing(gen uint32, missing []TagCount) error {
 	if len(missing) == 0 {
 		return nil
 	}
@@ -109,7 +120,7 @@ func (d *DB) RecordMissing(gen uint32, missing []spore.TagCount) error {
 }
 
 // RecordTypeSig writes type signature snapshot for a generation.
-func (d *DB) RecordTypeSig(gen uint32, typeSig []spore.TagCount) error {
+func (d *DB) RecordTypeSig(gen uint32, typeSig []TagCount) error {
 	if len(typeSig) == 0 {
 		return nil
 	}
@@ -126,7 +137,7 @@ func (d *DB) RecordTypeSig(gen uint32, typeSig []spore.TagCount) error {
 }
 
 // RecordConnectivity writes per-type connectivity for a generation.
-func (d *DB) RecordConnectivity(gen uint32, connectivity []spore.TagRatio) error {
+func (d *DB) RecordConnectivity(gen uint32, connectivity []TagRatio) error {
 	if len(connectivity) == 0 {
 		return nil
 	}

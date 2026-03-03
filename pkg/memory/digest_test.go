@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/mlekudev/dendrite/pkg/ratio"
-	"github.com/mlekudev/dendrite/pkg/spore"
 )
 
 func TestWalkDigestInsufficientData(t *testing.T) {
@@ -36,7 +35,7 @@ func TestWalkDigestOverExtended(t *testing.T) {
 		db.RecordFitness(gen, ratio.New(1, 100), ratio.Zero, ratio.Zero, ratio.New(1, 100))
 
 		// Type signatures: func has many sites but few bonds.
-		db.RecordTypeSig(gen, []spore.TagCount{
+		db.RecordTypeSig(gen, []TagCount{
 			{Tag: "func", Count: int(200 + gen*50)},
 			{Tag: "literal", Count: int(100 + gen*20)},
 		})
@@ -50,7 +49,7 @@ func TestWalkDigestOverExtended(t *testing.T) {
 		db.RecordBonds(gen, bonds)
 
 		// Missing: lots and rising.
-		db.RecordMissing(gen, []spore.TagCount{
+		db.RecordMissing(gen, []TagCount{
 			{Tag: "func", Count: int(500 + gen*100)},
 		})
 
@@ -116,7 +115,7 @@ func TestWalkDigestHealthyLattice(t *testing.T) {
 		db.RecordFitness(gen, ratio.New(int64(gen+1), 10), ratio.Zero, ratio.Zero, ratio.New(int64(gen+1), 10))
 
 		// Good bond rates.
-		db.RecordTypeSig(gen, []spore.TagCount{
+		db.RecordTypeSig(gen, []TagCount{
 			{Tag: "func", Count: 50},
 		})
 		bonds := make([]BondRecord, 30)

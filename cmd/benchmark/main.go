@@ -1,4 +1,4 @@
-// Command benchmark runs the dendrite 8-pass lattice detection chain
+// Command benchmark runs the dendrite Cayley tree detection chain
 // against three categories of text:
 //
 //  1. Known-human texts (e.g. Gutenberg corpus)
@@ -41,18 +41,16 @@ var progressOut io.Writer = os.Stdout
 
 func main() {
 	var (
-		memoryDir    = flag.String("memory", ".recognise_db", "badger DB with trained mindsicles")
+		memoryDir    = flag.String("memory", ".recognise_db", "badger DB with trained snapshot")
 		corpusDir    = flag.String("corpus", "", "directory of .txt files (known human)")
 		claudeDir    = flag.String("claude-corpus", "", "directory with model-tier subdirs of .txt files")
 		raidCSV      = flag.String("raid", "", "path to RAID train.csv (labeled AI text)")
 		raidSamples  = flag.Int("raid-samples", 50, "samples per RAID model (0 = all)")
-		passes      = flag.Int("passes", 8, "number of detection passes")
 		window      = flag.Int("window", 500, "max tokens per sample")
 		workers     = flag.Int("workers", 0, "concurrent workers (0 = NumCPU)")
 		maxFiles    = flag.Int("max", 0, "max corpus files to process (0 = all)")
 		minBytes    = flag.Int("min-bytes", 200, "skip corpus files smaller than this")
-		trollMemory = flag.String("troll-memory", "", "badger DB with manipulation-trained mindsicles (empty = disabled)")
-		trollPasses = flag.Int("troll-passes", 8, "number of troll detection passes")
+		trollMemory = flag.String("troll-memory", "", "badger DB with manipulation-trained snapshot (empty = disabled)")
 		verbose     = flag.Bool("verbose", false, "print per-file verdicts")
 		summary      = flag.Bool("summary", false, "print markdown summary (for grant applications)")
 	)
@@ -72,21 +70,21 @@ func main() {
 	defer cancel()
 
 	// Load detector.
-	log.Printf("loading %d-pass lattice chain from %s", *passes, *memoryDir)
-	detector, err := detect.NewDetector(*memoryDir, *passes, *window)
+	log.Printf("loading Cayley tree detector from %s", *memoryDir)
+	detector, err := detect.NewDetector(*memoryDir, *window)
 	if err != nil {
 		log.Fatalf("init detector: %v", err)
 	}
-	log.Printf("lattices loaded (%d passes, %d token window)", *passes, *window)
+	log.Printf("detector loaded (%d token window)", *window)
 
-	// Load troll detection lattices if configured.
+	// Load troll detection tree if configured.
 	trollEnabled := false
 	if *trollMemory != "" {
-		log.Printf("loading %d-pass troll lattice chain from %s", *trollPasses, *trollMemory)
-		if err := detector.LoadTrollLattices(*trollMemory, *trollPasses); err != nil {
+		log.Printf("loading troll Cayley tree from %s", *trollMemory)
+		if err := detector.LoadTrollTree(*trollMemory); err != nil {
 			log.Fatalf("init troll detector: %v", err)
 		}
-		log.Printf("troll lattices loaded (%d passes)", *trollPasses)
+		log.Println("troll tree loaded")
 		trollEnabled = true
 	}
 
@@ -499,8 +497,8 @@ func printFinalReport(humanResults []result, claudeResults, raidResults []modelR
 		fmt.Printf("║  samples:         %-44d║\n", stats.total)
 		fmt.Printf("║  correct (HUMAN): %-5d  (%.1f%%)%-31s║\n", stats.humanCount, stats.accuracy, "")
 		fmt.Printf("║  false positive:  %-5d  (%.1f%% misclassified as AI)%-14s║\n", stats.aiCount, 100-stats.accuracy, "")
-		fmt.Printf("║  avg deep walk:   %.3f  (boundary: 1.320)%-18s║\n", stats.avgWalk, "")
-		fmt.Printf("║  avg long-miss:   %.3f  (boundary: 0.310)%-18s║\n", stats.avgMiss, "")
+		fmt.Printf("║  avg deep walk:   %.3f  (boundary: multi-level)%-18s║\n", stats.avgWalk, "")
+		fmt.Printf("║  avg long-miss:   %.3f  (boundary: multi-level)%-18s║\n", stats.avgMiss, "")
 		fmt.Printf("║  avg time:        %.0f ms/sample%-30s║\n", stats.avgDurMs, "")
 		if trollEnabled {
 			fmt.Printf("║  avg troll score: %.3f%-38s║\n", stats.avgTroll, "")
@@ -706,7 +704,7 @@ func printMarkdownSummary(humanResults []result, claudeResults, raidResults []mo
 
 	fmt.Println("# Dendrite Detection Benchmark")
 	fmt.Println()
-	fmt.Println("Deterministic lattice-based AI text detection. No neural networks, no GPU.")
+	fmt.Println("Deterministic Cayley tree AI text detection. No neural networks, no GPU.")
 	fmt.Println()
 
 	// ── Combined accuracy headline ──
@@ -746,8 +744,8 @@ func printMarkdownSummary(humanResults []result, claudeResults, raidResults []mo
 		fmt.Println("## Human Text (Gutenberg Corpus)")
 		fmt.Println()
 		fmt.Printf("- **%d** samples, **%.1f%%** correctly identified as human\n", hs.total, hs.accuracy)
-		fmt.Printf("- Avg deep walk: %.3f (boundary: 1.320)\n", hs.avgWalk)
-		fmt.Printf("- Avg long-miss rate: %.3f (boundary: 0.310)\n", hs.avgMiss)
+		fmt.Printf("- Avg deep walk: %.3f (boundary: multi-level)\n", hs.avgWalk)
+		fmt.Printf("- Avg long-miss rate: %.3f (boundary: multi-level)\n", hs.avgMiss)
 		fmt.Printf("- Avg detection time: %.0f ms/sample\n", hs.avgDurMs)
 		if trollEnabled {
 			fmt.Printf("- Avg manipulation score: %.1f%% (human baseline)\n", hs.avgTroll*100)
@@ -860,5 +858,5 @@ func printMarkdownSummary(humanResults []result, claudeResults, raidResults []mo
 	}
 
 	fmt.Println("---")
-	fmt.Println("*Generated by `dendrite benchmark`. Deterministic, reproducible, no GPU required.*")
+	fmt.Println("*Generated by `dendrite benchmark`. Cayley tree detection, deterministic, reproducible, no GPU required.*")
 }

@@ -2,8 +2,6 @@ package grammar
 
 import (
 	"testing"
-
-	"github.com/mlekudev/dendrite/pkg/axiom"
 )
 
 func TestNaturalTextAdjacency(t *testing.T) {
@@ -36,12 +34,12 @@ func TestNaturalTextAdjacency(t *testing.T) {
 
 func TestNaturalTextTags(t *testing.T) {
 	tags := NaturalText.Tags()
-	if len(tags) != 7 {
-		t.Errorf("got %d tags, want 7: %v", len(tags), tags)
+	if len(tags) != 8 {
+		t.Errorf("got %d tags, want 8: %v", len(tags), tags)
 	}
 	expected := map[string]bool{
 		"w1": true, "w2": true, "w3": true, "w4": true, "w5": true,
-		"punct": true, "space": true,
+		"punct": true, "space": true, "origin": true,
 	}
 	for _, tag := range tags {
 		if !expected[tag] {
@@ -77,22 +75,3 @@ func TestTextDefaultCountsMinimum(t *testing.T) {
 	}
 }
 
-func TestBuildTextLattice(t *testing.T) {
-	counts := TextDefaultCounts(100)
-	seed := [32]byte{1, 2, 3}
-
-	l := BuildGrammarLattice(NaturalText, counts, seed, func(tag string) axiom.Constraint {
-		return NewConstraint(tag, NaturalText)
-	})
-
-	if l.Size() != 100 {
-		t.Errorf("lattice size = %d, want 100", l.Size())
-	}
-
-	// All nodes should have at least one neighbor (ring connectivity).
-	for _, n := range l.Nodes() {
-		if len(n.Neighbors()) == 0 {
-			t.Errorf("node %d has no neighbors", n.ID())
-		}
-	}
-}

@@ -1,6 +1,6 @@
-// Package detect provides a reusable 8-pass lattice detection chain.
-// It loads trained mindsicles, thaws them into read-only lattices,
-// and runs the full SeqProbe cascade on arbitrary text input.
+// Package detect provides a Cayley tree-based text detection chain.
+// It loads a trained snapshot, thaws it into a read-only virtual tree,
+// and probes text against the 8-level Walsh-Hadamard structure.
 //
 // Thread-safe: Detect can be called concurrently from multiple goroutines.
 package detect
@@ -11,238 +11,166 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/mlekudev/dendrite/pkg/axiom"
+	"github.com/mlekudev/dendrite/pkg/cayley"
 	"github.com/mlekudev/dendrite/pkg/enzyme"
 	"github.com/mlekudev/dendrite/pkg/grammar"
-	"github.com/mlekudev/dendrite/pkg/grow"
-	"github.com/mlekudev/dendrite/pkg/lattice"
+	"github.com/mlekudev/dendrite/pkg/hadamard"
 	"github.com/mlekudev/dendrite/pkg/memory"
-	"github.com/mlekudev/dendrite/pkg/mindsicle"
 )
 
-// Detector holds thawed lattices for the multi-pass detection chain.
-// Lattices are read-only after thaw; Detect is safe for concurrent use.
+// Detector holds a thawed Cayley tree for detection.
+// The tree is read-only after thaw; Detect is safe for concurrent use.
 type Detector struct {
-	lattices      []*lattice.Lattice
-	trollLattices []*lattice.Lattice
-	passes        int
-	trollPasses   int
-	window        int
-	probeCfg      grow.Config
+	tree      *cayley.Tree
+	trollTree *cayley.Tree
+	window    int
 }
 
-// NewDetector loads trained mindsicles from the badger DB, thaws them
-// into live lattices, and closes the DB. The returned Detector holds
-// only in-memory lattice graphs.
-func NewDetector(memoryDir string, passes, window int) (*Detector, error) {
+// NewDetector loads a trained Cayley tree snapshot from the badger DB,
+// thaws it, and closes the DB. The returned Detector holds only the
+// in-memory virtual tree.
+func NewDetector(memoryDir string, window int) (*Detector, error) {
 	db, err := memory.Open(memoryDir)
 	if err != nil {
 		return nil, fmt.Errorf("open memory: %w", err)
 	}
 	defer db.Close()
 
-	d := &Detector{
-		lattices: make([]*lattice.Lattice, passes),
-		passes:   passes,
-		window:   window,
-		probeCfg: grow.Config{MaxSteps: 3, Workers: 1},
-	}
-
-	// Thaw gen 1: word lattice.
-	wordData, err := db.LoadMindsicle(1)
+	data, err := db.LoadMindsicle(1)
 	if err != nil {
-		return nil, fmt.Errorf("load word mindsicle: %w", err)
-	}
-	var wm mindsicle.Mindsicle
-	if err := json.Unmarshal(wordData, &wm); err != nil {
-		return nil, fmt.Errorf("unmarshal word mindsicle: %w", err)
-	}
-	d.lattices[0] = wm.Thaw(func(tag string) axiom.Constraint {
-		return grammar.NewConstraint(tag, grammar.NaturalText)
-	})
-
-	// Thaw gen 2..N: event lattices.
-	for p := 1; p < passes; p++ {
-		data, err := db.LoadMindsicle(uint32(p + 1))
-		if err != nil {
-			return nil, fmt.Errorf("load event mindsicle gen %d: %w", p+1, err)
-		}
-		var em mindsicle.Mindsicle
-		if err := json.Unmarshal(data, &em); err != nil {
-			return nil, fmt.Errorf("unmarshal event mindsicle gen %d: %w", p+1, err)
-		}
-		d.lattices[p] = em.Thaw(func(tag string) axiom.Constraint {
-			return grammar.NewConstraint(tag, grammar.BondEvent)
-		})
+		return nil, fmt.Errorf("load snapshot: %w", err)
 	}
 
-	return d, nil
+	var snap cayley.Snapshot
+	if err := json.Unmarshal(data, &snap); err != nil {
+		return nil, fmt.Errorf("unmarshal snapshot: %w", err)
+	}
+
+	return &Detector{
+		tree:   cayley.Thaw(&snap),
+		window: window,
+	}, nil
 }
 
-// LoadTrollLattices loads a second set of mindsicles trained on manipulation text.
-func (d *Detector) LoadTrollLattices(memoryDir string, passes int) error {
+// NewDetectorFromSnapshot creates a Detector from an already-loaded snapshot.
+func NewDetectorFromSnapshot(snap *cayley.Snapshot, window int) *Detector {
+	return &Detector{
+		tree:   cayley.Thaw(snap),
+		window: window,
+	}
+}
+
+// NewDetectorFromTree creates a Detector from a live tree (used in testing).
+func NewDetectorFromTree(tree *cayley.Tree, window int) *Detector {
+	return &Detector{
+		tree:   tree,
+		window: window,
+	}
+}
+
+// LoadTrollTree loads a manipulation-trained Cayley tree.
+func (d *Detector) LoadTrollTree(memoryDir string) error {
 	db, err := memory.Open(memoryDir)
 	if err != nil {
 		return fmt.Errorf("open troll memory: %w", err)
 	}
 	defer db.Close()
 
-	d.trollLattices = make([]*lattice.Lattice, passes)
-	d.trollPasses = passes
-
-	wordData, err := db.LoadMindsicle(1)
+	data, err := db.LoadMindsicle(1)
 	if err != nil {
-		return fmt.Errorf("load troll word mindsicle: %w", err)
-	}
-	var wm mindsicle.Mindsicle
-	if err := json.Unmarshal(wordData, &wm); err != nil {
-		return fmt.Errorf("unmarshal troll word mindsicle: %w", err)
-	}
-	d.trollLattices[0] = wm.Thaw(func(tag string) axiom.Constraint {
-		return grammar.NewConstraint(tag, grammar.NaturalText)
-	})
-
-	for p := 1; p < passes; p++ {
-		data, err := db.LoadMindsicle(uint32(p + 1))
-		if err != nil {
-			return fmt.Errorf("load troll event mindsicle gen %d: %w", p+1, err)
-		}
-		var em mindsicle.Mindsicle
-		if err := json.Unmarshal(data, &em); err != nil {
-			return fmt.Errorf("unmarshal troll event mindsicle gen %d: %w", p+1, err)
-		}
-		d.trollLattices[p] = em.Thaw(func(tag string) axiom.Constraint {
-			return grammar.NewConstraint(tag, grammar.BondEvent)
-		})
+		return fmt.Errorf("load troll snapshot: %w", err)
 	}
 
+	var snap cayley.Snapshot
+	if err := json.Unmarshal(data, &snap); err != nil {
+		return fmt.Errorf("unmarshal troll snapshot: %w", err)
+	}
+
+	d.trollTree = cayley.Thaw(&snap)
 	return nil
 }
 
-// Detect runs the multi-pass SeqProbe chain on text content and returns a verdict.
+// Detect runs the 8-level Cayley tree detection on text content.
+//
+// Detection works by building a fresh "probe tree" from the input text,
+// then comparing it level-by-level against the trained tree. The distance
+// between the two trees' channel distributions at each level determines
+// the walk distance and bond/miss metrics.
+//
+// Each depth level of the tree corresponds to one detection pass:
+// leaf (depth 7) = pass 1, root (depth 0) = pass 8.
 func (d *Detector) Detect(ctx context.Context, content string) grammar.Verdict {
 	solution := enzyme.Text{}.Digest(strings.NewReader(content))
-	solution = limitTokens(solution, d.window)
 
-	var tokens []axiom.Element
+	// Build a probe tree from the input text.
+	probeTree := cayley.NewTree()
+	count := 0
 	for tok := range solution {
-		tokens = append(tokens, tok)
+		if d.window > 0 && count >= d.window {
+			for range solution {
+			}
+			break
+		}
+		ch := hadamard.ChanIndex(tok.Type())
+		if ch >= 0 {
+			probeTree.Deposit(ch)
+		}
+		count++
 	}
 
-	aiStats := d.runChain(ctx, d.lattices, d.passes, tokens)
-	verdict := grammar.Score(aiStats)
+	select {
+	case <-ctx.Done():
+		return grammar.Verdict{Label: "cancelled"}
+	default:
+	}
 
-	if len(d.trollLattices) > 0 {
-		trollStats := d.runChain(ctx, d.trollLattices, d.trollPasses, tokens)
-		grammar.ScoreTroll(&verdict, trollStats)
+	// Compare probe tree against trained tree at each depth level.
+	// Only include levels where the probe tree has at least 32 tokens,
+	// since sparse levels produce noisy Walsh comparisons.
+	const minTokensPerLevel = 32
+	perLevel := make([]grammar.PassStats, cayley.MaxDepth)
+	usedLevels := 0
+	for depth := cayley.MaxDepth - 1; depth >= 0; depth-- {
+		// Check probe token count at this level.
+		probeTokens := probeTree.TokenCountAt(depth)
+		if probeTokens < minTokensPerLevel {
+			continue
+		}
+
+		bonded, missed, longMisses, walkDist := cayley.CompareAt(d.tree, probeTree, depth)
+		passIdx := cayley.MaxDepth - 1 - depth
+		perLevel[passIdx].Bonded = int64(bonded)
+		perLevel[passIdx].Missed = int64(missed)
+		perLevel[passIdx].Total = int64(bonded + missed)
+		perLevel[passIdx].LongMisses = int64(longMisses)
+		perLevel[passIdx].TotalWalkDist = walkDist
+		usedLevels++
+	}
+
+	// Compute probe features from the leaf-level spatial distribution.
+	leafStats := probeTree.StatsAt(cayley.MaxDepth - 1)
+	leafTotal := hadamard.DC(leafStats.Spatial)
+	var features grammar.ProbeFeatures
+	if leafTotal > 0 {
+		features.PunctRatio = float64(leafStats.Spatial[hadamard.ChanPunct]) / float64(leafTotal)
+		features.LongWordRatio = float64(leafStats.Spatial[hadamard.ChanW4]+leafStats.Spatial[hadamard.ChanW5]) / float64(leafTotal)
+	}
+
+	verdict := grammar.ScoreWalsh(perLevel, features)
+
+	// Troll scoring if available.
+	if d.trollTree != nil {
+		trollLevels := make([]grammar.PassStats, cayley.MaxDepth)
+		for depth := cayley.MaxDepth - 1; depth >= 0; depth-- {
+			bonded, missed, _, _ := cayley.CompareAt(d.trollTree, probeTree, depth)
+			passIdx := cayley.MaxDepth - 1 - depth
+			trollLevels[passIdx].Bonded = int64(bonded)
+			trollLevels[passIdx].Missed = int64(missed)
+			trollLevels[passIdx].Total = int64(bonded + missed)
+		}
+		grammar.ScoreTroll(&verdict, trollLevels)
 	}
 
 	return verdict
 }
 
-func (d *Detector) runChain(ctx context.Context, lattices []*lattice.Lattice, passes int, tokens []axiom.Element) []grammar.PassStats {
-	tokenCh := make(chan axiom.Element, len(tokens))
-	for _, tok := range tokens {
-		tokenCh <- tok
-	}
-	close(tokenCh)
-
-	eventsCh := make(chan grow.Event, 256)
-	var prevEvents []grow.Event
-	done := make(chan struct{})
-	go func() {
-		for ev := range eventsCh {
-			prevEvents = append(prevEvents, ev)
-		}
-		close(done)
-	}()
-	grow.SeqProbe(ctx, lattices[0], tokenCh, d.probeCfg, eventsCh)
-	close(eventsCh)
-	<-done
-
-	allPassStats := make([]grammar.PassStats, passes)
-	b, e, t := countEvents(prevEvents)
-	allPassStats[0] = grammar.PassStats{Events: prevEvents, Bonded: b, Expired: e, Total: t}
-
-	for p := 1; p < passes; p++ {
-		classified := classifyEvents(prevEvents)
-		nextEvents := seqProbeElements(ctx, lattices[p], classified, d.probeCfg)
-		b, e, t = countEvents(nextEvents)
-		allPassStats[p] = grammar.PassStats{Events: nextEvents, Bonded: b, Expired: e, Total: t}
-		prevEvents = nextEvents
-	}
-
-	return allPassStats
-}
-
-func classifyEvents(events []grow.Event) []axiom.Element {
-	elems := make([]axiom.Element, len(events))
-	for i, ev := range events {
-		elems[i] = grammar.ClassifyEvent(ev)
-	}
-	return elems
-}
-
-func seqProbeElements(ctx context.Context, l *lattice.Lattice, elems []axiom.Element, cfg grow.Config) []grow.Event {
-	ch := make(chan axiom.Element, 256)
-	go func() {
-		defer close(ch)
-		for _, e := range elems {
-			select {
-			case ch <- e:
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-
-	eventsCh := make(chan grow.Event, 256)
-	var events []grow.Event
-	done := make(chan struct{})
-	go func() {
-		for ev := range eventsCh {
-			events = append(events, ev)
-		}
-		close(done)
-	}()
-
-	grow.SeqProbe(ctx, l, ch, cfg, eventsCh)
-	close(eventsCh)
-	<-done
-
-	return events
-}
-
-func countEvents(events []grow.Event) (bonded, expired, total int64) {
-	for _, ev := range events {
-		switch ev.Type {
-		case grow.EventBonded:
-			bonded++
-		case grow.EventExpired:
-			expired++
-		}
-		total++
-	}
-	return
-}
-
-func limitTokens(in <-chan axiom.Element, max int) <-chan axiom.Element {
-	if max <= 0 {
-		return in
-	}
-	out := make(chan axiom.Element, cap(in))
-	go func() {
-		defer close(out)
-		n := 0
-		for e := range in {
-			if n >= max {
-				for range in {
-				}
-				return
-			}
-			out <- e
-			n++
-		}
-	}()
-	return out
-}

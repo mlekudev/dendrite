@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/mlekudev/dendrite/pkg/ratio"
-	"github.com/mlekudev/dendrite/pkg/spore"
 )
 
 func tmpDB(t *testing.T) *DB {
@@ -129,7 +128,7 @@ func TestRecordAndQueryTypeSig(t *testing.T) {
 
 	// Record type signatures for 3 generations.
 	for gen := uint32(0); gen < 3; gen++ {
-		err := db.RecordTypeSig(gen, []spore.TagCount{
+		err := db.RecordTypeSig(gen, []TagCount{
 			{Tag: "func", Count: int(10 + gen*5)},
 			{Tag: "type", Count: int(20 + gen*3)},
 		})
@@ -166,7 +165,7 @@ func TestRecordAndQueryMissing(t *testing.T) {
 	db := tmpDB(t)
 
 	for gen := uint32(0); gen < 3; gen++ {
-		err := db.RecordMissing(gen, []spore.TagCount{
+		err := db.RecordMissing(gen, []TagCount{
 			{Tag: "import", Count: int(5 + gen)},
 		})
 		if err != nil {
@@ -310,7 +309,7 @@ func TestRecordAndQueryHexagramOps(t *testing.T) {
 func TestRecordAndQueryConnectivity(t *testing.T) {
 	db := tmpDB(t)
 
-	err := db.RecordConnectivity(0, []spore.TagRatio{
+	err := db.RecordConnectivity(0, []TagRatio{
 		{Tag: "func", Value: ratio.New(3, 1)},
 		{Tag: "type", Value: ratio.New(5, 2)},
 	})
@@ -389,7 +388,7 @@ func TestGraphTraversal(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if err := db.RecordTypeSig(gen, []spore.TagCount{
+		if err := db.RecordTypeSig(gen, []TagCount{
 			{Tag: "func", Count: bondCount},
 		}); err != nil {
 			t.Fatal(err)

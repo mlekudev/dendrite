@@ -1,5 +1,5 @@
 // Command sentry watches a Nostr relay for kind-1 text notes,
-// runs each through the dendrite 8-pass lattice detection chain,
+// runs each through the dendrite Cayley tree detection chain,
 // and broadcasts verdict replies to every known relay from a fresh
 // throwaway npub.
 //
@@ -37,11 +37,9 @@ const sentrySignature = "https://git.nostrdev.com/mleku/dendrite"
 func main() {
 	var (
 		watchURL      = flag.String("watch", "wss://relay.orly.dev", "relay to subscribe for events")
-		memoryDir     = flag.String("memory", ".recognise_db", "badger DB with trained mindsicles")
-		trollMemory   = flag.String("troll-memory", "", "badger DB with manipulation-trained mindsicles (empty = disabled)")
-		trollPasses   = flag.Int("troll-passes", 8, "number of troll detection passes")
+		memoryDir     = flag.String("memory", ".recognise_db", "badger DB with trained snapshot")
+		trollMemory   = flag.String("troll-memory", "", "badger DB with manipulation-trained snapshot (empty = disabled)")
 		trollThreshold = flag.Float64("troll-threshold", 0.05, "minimum troll score to include in verdict")
-		passes        = flag.Int("passes", 8, "number of detection passes")
 		window        = flag.Int("window", 500, "max tokens per sample")
 		workers       = flag.Int("workers", 4, "concurrent detector workers")
 		rateLimit     = flag.Int("rate-limit", 6, "max verdicts per minute")
@@ -55,21 +53,21 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 
-	// Load trained lattices.
-	log.Printf("loading %d-pass lattice chain from %s", *passes, *memoryDir)
-	detector, err := NewDetector(*memoryDir, *passes, *window)
+	// Load trained Cayley tree.
+	log.Printf("loading Cayley tree detector from %s", *memoryDir)
+	detector, err := NewDetector(*memoryDir, *window)
 	if err != nil {
 		log.Fatalf("init detector: %v", err)
 	}
-	log.Printf("lattices loaded (%d passes, %d token window)", *passes, *window)
+	log.Printf("detector loaded (%d token window)", *window)
 
-	// Load troll detection lattices if configured.
+	// Load troll detection tree if configured.
 	if *trollMemory != "" {
-		log.Printf("loading %d-pass troll lattice chain from %s", *trollPasses, *trollMemory)
-		if err := detector.LoadTrollLattices(*trollMemory, *trollPasses); err != nil {
+		log.Printf("loading troll Cayley tree from %s", *trollMemory)
+		if err := detector.LoadTrollTree(*trollMemory); err != nil {
 			log.Fatalf("init troll detector: %v", err)
 		}
-		log.Printf("troll lattices loaded (%d passes)", *trollPasses)
+		log.Println("troll tree loaded")
 	}
 
 	// Relay pool: seeds + discovered from kind-10002 events.

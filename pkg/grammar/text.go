@@ -21,17 +21,19 @@ import (
 //	w5: 9+ chars    (restructured, acknowledging)
 var NaturalText = &Grammar{Rules: []Rule{
 	// Short words connect to everything — they're the glue of English.
-	{Tag: "w1", Neighbors: []string{"w1", "w2", "w3", "w4", "w5", "punct", "space"}},
-	{Tag: "w2", Neighbors: []string{"w1", "w2", "w3", "w4", "w5", "punct", "space"}},
+	{Tag: "w1", Neighbors: []string{"w1", "w2", "w3", "w4", "w5", "punct", "space", "origin"}},
+	{Tag: "w2", Neighbors: []string{"w1", "w2", "w3", "w4", "w5", "punct", "space", "origin"}},
 	// Medium words: most flexible.
-	{Tag: "w3", Neighbors: []string{"w1", "w2", "w3", "w4", "w5", "punct", "space"}},
+	{Tag: "w3", Neighbors: []string{"w1", "w2", "w3", "w4", "w5", "punct", "space", "origin"}},
 	// Longer words tend to precede short connectors or punctuation.
-	{Tag: "w4", Neighbors: []string{"w1", "w2", "w3", "w4", "w5", "punct", "space"}},
-	{Tag: "w5", Neighbors: []string{"w1", "w2", "w3", "w4", "punct", "space"}},
+	{Tag: "w4", Neighbors: []string{"w1", "w2", "w3", "w4", "w5", "punct", "space", "origin"}},
+	{Tag: "w5", Neighbors: []string{"w1", "w2", "w3", "w4", "punct", "space", "origin"}},
 	// Punctuation bridges words and other punctuation.
-	{Tag: "punct", Neighbors: []string{"w1", "w2", "w3", "w4", "w5", "punct", "space"}},
+	{Tag: "punct", Neighbors: []string{"w1", "w2", "w3", "w4", "w5", "punct", "space", "origin"}},
 	// Spaces always lead to words.
-	{Tag: "space", Neighbors: []string{"w1", "w2", "w3", "w4", "w5", "punct"}},
+	{Tag: "space", Neighbors: []string{"w1", "w2", "w3", "w4", "w5", "punct", "origin"}},
+	// Origin: the 8th channel. Author identity connects to all content types.
+	{Tag: "origin", Neighbors: []string{"w1", "w2", "w3", "w4", "w5", "punct", "space"}},
 }}
 
 // TextDefaultCounts returns a tag count map for building a natural language
@@ -46,21 +48,22 @@ var NaturalText = &Grammar{Rules: []Rule{
 //	punct: ~10%
 //	space: ~25%
 func TextDefaultCounts(targetSize int) map[string]int {
-	if targetSize < 7 {
-		targetSize = 7
+	if targetSize < 8 {
+		targetSize = 8
 	}
 	w1 := int(ratio.New(5, 100).ScaleInt(int64(targetSize)))
-	w2 := int(ratio.New(20, 100).ScaleInt(int64(targetSize)))
-	w3 := int(ratio.New(20, 100).ScaleInt(int64(targetSize)))
-	w4 := int(ratio.New(15, 100).ScaleInt(int64(targetSize)))
+	w2 := int(ratio.New(19, 100).ScaleInt(int64(targetSize)))
+	w3 := int(ratio.New(19, 100).ScaleInt(int64(targetSize)))
+	w4 := int(ratio.New(14, 100).ScaleInt(int64(targetSize)))
 	w5 := int(ratio.New(5, 100).ScaleInt(int64(targetSize)))
 	punct := int(ratio.New(10, 100).ScaleInt(int64(targetSize)))
-	space := targetSize - w1 - w2 - w3 - w4 - w5 - punct
+	origin := int(ratio.New(3, 100).ScaleInt(int64(targetSize)))
+	space := targetSize - w1 - w2 - w3 - w4 - w5 - punct - origin
 
 	// Ensure each type has at least 1 node.
 	counts := map[string]int{
 		"w1": w1, "w2": w2, "w3": w3, "w4": w4, "w5": w5,
-		"punct": punct, "space": space,
+		"punct": punct, "space": space, "origin": origin,
 	}
 	for k, v := range counts {
 		if v < 1 {
