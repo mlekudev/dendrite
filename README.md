@@ -90,6 +90,40 @@ Markdown summary output (pipe-friendly):
 benchmark -memory .recognise_db -corpus ./gutenberg_corpus -raid ./raid-train.csv -summary
 ```
 
+## Bonus: Claude Code Context Fill Statusline
+
+Included in this repo is a small utility (`claude-statusline.zip`) that adds a color-coded context window fill indicator to your Claude Code status line. It shows a 10-character progress bar and percentage so you always know how full the context is.
+
+**Why this matters:** Claude Code's context window degrades in quality as it fills. Compaction (the automatic summarization that happens when the window is full) loses nuance and detail. It is best to trigger `/compact` manually or `/clear` and start fresh at or before 50% fill. Past 50%, the model is working with increasingly stale context and the compacted summary will be lossy. The yellow/red color thresholds in this script are set at 50% and 80% to reflect this.
+
+**What it looks like:**
+
+```
+mleku@host:~/project ##--------  20%     (green — plenty of room)
+mleku@host:~/project #####-----  50%     (yellow — consider compacting)
+mleku@host:~/project ########--  80%     (red — compact or clear now)
+```
+
+**Installation:**
+
+1. Download or extract `claude-statusline.zip`
+2. Copy `statusline-command.sh` to `~/.claude/`
+3. Make it executable: `chmod +x ~/.claude/statusline-command.sh`
+4. Merge the `statusLine` block from `settings-snippet.json` into your `~/.claude/settings.json`:
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "bash ~/.claude/statusline-command.sh"
+  }
+}
+```
+
+5. Restart Claude Code. The status line will appear at the bottom of the terminal.
+
+Requires `jq` on your system (`apt install jq`, `brew install jq`, `pacman -S jq`, etc.).
+
 ## Status
 
 Research prototype. Early benchmarks show 69.1% balanced accuracy across 1,600+ samples from human texts, Claude, and the RAID benchmark corpus. See [docs/manifund-proposal.md](docs/manifund-proposal.md) for the full proposal.
